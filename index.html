@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* ベース設定 */
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin-left: 3%;
+            margin-right: 5%;
+            padding: 0;
+            background-color: #fcfcfc;
+        }
+
+        /* 目次エリア（右側フローティング・格納式） */
+        #toc-container {
+            position: fixed;
+            top: 0;
+            right: -260px;
+            /* ★通常は画面外に隠す（幅300pxのうち40pxだけ見せる） */
+            width: 300px;
+            height: 100vh;
+            background-color: #f4f4f4;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            transition: right 0.3s ease;
+            /* ★なめらかに動く設定 */
+            z-index: 1000;
+            display: flex;
+            /* タブと中身を横並び */
+        }
+
+        /* カーソルが乗った時に飛び出す設定 */
+        #toc-container:hover {
+            right: 0;
+            /* 画面内に出てくる */
+        }
+
+        /* 目次の「つまみ（タブ）」 */
+        #toc-tab {
+            width: 40px;
+            /* つまみの幅 */
+            background-color: #AE3379;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            /* 縦書き */
+            font-weight: bold;
+            letter-spacing: 3px;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 5px 0 0 5px;
+        }
+
+        /* 目次リスト本体 */
+        #toc-content-wrapper {
+            width: 260px;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #toc-list li {
+            margin-bottom: 4px;
+        }
+
+        #toc-list a {
+            text-decoration: none;
+            color: #666;
+            font-size: 0.9em;
+            display: block;
+            padding: 5px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        #toc-list a:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* アクティブな目次 */
+        #toc-list a.active {
+            color: #AE3379;
+            background-color: #dcefff;
+            font-weight: bold;
+            border-left: 3px solid #AE3379;
+        }
+
+        /* メインコンテンツエリア */
+        #main-content {
+            max-width: 800px;
+            margin: 0 auto;
+            /* 中央寄せ */
+            padding: 40px 20px;
+            /* 右側に目次タブ分の余白を少し確保（被り防止） */
+            padding-right: 50px;
+        }
+
+        /* コンテンツ装飾 */
+        h2 {
+            background-color: #AE3379;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 60px;
+            font-size: 1.5em;
+            scroll-margin-top: 20px;
+        }
+
+        .question-block {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            background-color: #fff;
+        }
+
+        h3 {
+            border-left: 5px solid #AE3379;
+            padding-left: 10px;
+            color: #AE3379;
+        }
+
+        .similar-question {
+            background-color: #f9f9f9;
+            border: 1px dashed #bbb;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        .options-vertical {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .options-horizontal {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+            font-weight: bold;
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .citation {
+            font-size: 0.8em;
+            color: #888;
+            text-align: right;
+        }
+
+        /* スマホ・極小画面対応 */
+        @media (max-width: 600px) {
+            #main-content {
+                padding-right: 20px;
+            }
+
+            /* スマホでも邪魔なら以下で目次を非表示にすることも可能 */
+            /* #toc-container { display: none; } */
+        }
+
+        /* 解説コンテナ全体のスタイル */
+        .explanation-container {
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            overflow: hidden;
+        }
+
+        /* クリックする見出し部分 */
+        .explanation-title {
+            padding: 10px 15px;
+            background-color: #eee;
+            cursor: pointer;
+            font-weight: bold;
+            list-style: none;
+            /* デフォルトの三角形を消したい場合 */
+            display: flex;
+            align-items: center;
+        }
+
+        /* 三角アイコンのカスタマイズ（任意） */
+        .explanation-title::before {
+            content: "▶";
+            margin-right: 10px;
+            font-size: 0.8em;
+            transition: transform 0.3s;
+        }
+
+        /* 開いている時のアイコン変化 */
+        .explanation-container[open] .explanation-title::before {
+            transform: rotate(90deg);
+        }
+
+        /* 解説の中身 */
+        .explanation-content {
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            line-height: 1.6;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 目次コンテナ（ここを追加） -->
+    <nav id="toc-container">
+        <strong>目次</strong>
+        <ul id="toc-list">
+            <!-- JSでここにリストが生成されます -->
+        </ul>
+    </nav>
+
+    <!-- コンテンツ本文 (一部抜粋・これまでの出力内容が入ります) -->
+    <div id="content-main">
+
+        <h2>[1. 放射線生物]</h2>
+
+        <div class="question-block">
+            <p>【問】放射線に関して誤っているのはどれか。1つ選べ。（23 問29, 22 問8）</p>
+            <div class="options-vertical">
+                a. 電離によって電気的に中性であった原子または分子は陽イオンとなる。<br>
+                b. 赤外線や可視光線に電離作用は無い。<br>
+                c. 透過力は電磁波に特有の性質である。<br>
+                d. γ線(ガンマ線)は「波」の性質を持つ「電磁波」に属する。<br>
+                e. 陽子線は「粒」の性質を持つ「粒子線」に属する。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c<br>
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <div class="question-block">
+            <p>【問】正しいものはどれか。2つ選べ。（23 問39）</p>
+            <div class="options-vertical">
+                a. 高LET(線エネルギー付与:Linear Energy Transfer)放射線のDNAに対する作用は、間接作用が主体である。<br>
+                b. 直接作用はフリーラジカルを介してDNAを損傷させる。<br>
+                c. 高LET放射線は低LET放射線と比較してOER(酸素増感比:Oxygen Enhancement Ratio)が小さい。<br>
+                d. RBE(生物学的効果比：Relative Biological Effectiveness)は線量や線質によって変化する。<br>
+                e. LETが増加すればするほどRBEは上昇する。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c, d<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】正しいものはどれか。2つ選べ（22 問11）</p>
+                <div class="options-vertical">
+                    a. 高LET (Linear Energy Transfer) 放射線のDNAに対する作用は、直接作用が主体である。<br>
+                    b. 高LET 放射線は低LET 放射線と比較して OER (Oxygen Enhancement Ratio) が大きい。<br>
+                    c. LET が増加すればするほど RBE (Relative Biological Effectiveness) は上昇する。<br>
+                    d. 細胞分裂頻度の高いものほど放射線感受性が高い。<br>
+                    e. 放射線による発がんでは、白血病の潜伏期が最も長い。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a, d<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】正しいものはどれか。2つ選べ。（21 問39）</p>
+                <div class="options-vertical">
+                    a. 高LET（線エネルギー付与：Linear Energy Transfer）放射線のDNAに対する作用は、間接作用が主体である。<br>
+                    b. 細胞周期において、低LET放射線はS期後半〜G2期前半で最も抵抗性を示す。<br>
+                    c. LETが増加すればするほどRBEは上昇するとは限らない（オーバーキル現象）。<br>
+                    d. LETの増加に伴ってOERも上昇する。<br>
+                    e. 放射線発がんは高齢者のほうが若年者よりもリスクが高い。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：b, c<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】放射線治療で誤っているのはどれか。1つ選べ。（21 問31）</p>
+                <div class="options-vertical">
+                    a. LETとは、飛跡の単位長さ当たりに失われる放射線エネルギーの平均値のことである。<br>
+                    b. RBEとは、放射線の種類やエネルギーの違いによって生物に対する効果が異なることを示す指標である。<br>
+                    c. OERとは、ある生物学的効果を得るために、低酸素下で必要な線量と酸素存在下で必要な線量の比のことである。<br>
+                    d. 直接効果とは、放射線がDNAに直接作用して損傷を引き起こすことである。<br>
+                    e. Overkilling effect とは、抗癌剤等との併用によって放射線単独よりも効果が高まることである。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：e <br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】細胞周期において、もっともX線高感受性を示すのはどれか。1つ選べ。（22 問12）</p>
+            <div class="options-vertical">
+                a. G1 期（間期）<br>
+                b. G1 期後半～S期（合成期）前半<br>
+                c. S 期後半～G2期前半<br>
+                d. G2 期後半～M期（分裂期）前半<br>
+                e. M 期後半～G1期<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+						
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <div class="question-block">
+            <p>【問】ベルゴニー・トリボンドー (Bergonie-Tribondeau) の法則の説明で正しいものはどれか。3つ選べ。（21 問40 改題(2つ)）</p>
+            <div class="options-vertical">
+                a. 線量分割を行うほど細胞の放射線感受性が高い。<br>
+                b. 周囲に酸素が多いほど細胞の放射線感受性が低い。<br>
+                c. 将来行う細胞分裂の数が多いものほど感受性が高い。<br>
+                d. 細胞の分裂頻度が高いほど細胞の放射線感受性が高い。<br>
+                e. 形態および機能が未分化なほど細胞の放射線感受性が高い。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c, d, e<br>
+						
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <h2>[2. CT・MRI総論]</h2>
+
+        <div class="question-block">
+            <p>【問】正しいものを1つ選べ。（23 問1, 21 問22）</p>
+            <div class="options-vertical">
+                a. MRIの拡散強調画像は超急性期脳梗塞の診断に適している。<br>
+                b. Long TR, Long TEで得られるMR画像はT1強調画像である。<br>
+                c. MRA(MR Angiography)検査では内頸動脈の画像は得られない。<br>
+                d. MRA(MR Angiography)検査では造影剤を使用して血管の画像を得る。<br>
+                e. CTA(CT Angiography)検査では造影剤を使用せずに血管の画像を得る。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a<br>
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】正しいものを1つ選べ（22 問14）</p>
+                <div class="options-vertical">
+                    a. 冠状断画像は体軸方向の画像である。<br>
+                    b. MRCP では主膵管や胆嚢を撮像できない。<br>
+                    c. CT 室には磁性体の持ち込みは禁止である（MRI室の誤り）。<br>
+                    d. MRI の拡散強調画像は超急性期脳梗塞の診断に適している。<br>
+                    e. Long TR, Long TE で得られる MR 画像は T1 強調画像である。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】正しいものを1つ選べ。（23 問2）</p>
+            <div class="options-vertical">
+                a. T1強調画像では水は白く写る。<br>
+                b. T2強調画像では水は黒く写る。<br>
+                c. CTはX線を利用して画像を得る。<br>
+                d. MRIはX線を使用して画像を得る。<br>
+                e. CT値の単位はT(テスラ)を用いる。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c<br>
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】正しいものを1つ選べ（22 問13）</p>
+                <div class="options-vertical">
+                    a. CTは磁石を利用して撮影する。<br>
+                    b. T1 強調画像では水は白く写る。<br>
+                    c. T2 強調画像では水は白く写る。<br>
+                    d. CT 値の単位は T（テスラ）を用いる。<br>
+                    e. MRI の磁場の強さにはハンスフィールドユニット（HU）値を用いる。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c<br>
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】正しいものはどれか。1つ選べ。（21 問23）</p>
+                <div class="options-vertical">
+                    a. T1強調画像では水は白く写る。<br>
+                    b. T2強調画像では水は白く写る。<br>
+                    c. MRIはX線を使用して画像を得る。<br>
+                    d. CTは磁石を利用して画像を得る。<br>
+                    e. CT値の単位は T（テスラ）を用いる。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：b<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <h2>[3. 核医学総論]</h2>
+
+        <div class="question-block">
+            <p>【問】核医学検査の特徴として正しいものはどれか。2つ選べ。（23 問6）</p>
+            <div class="options-vertical">
+                a. 検査ではX線CTと同じ原理を用いている。<br>
+                b. 核医学検査では臓器の構造を見ることが主目的である。<br>
+                c. 検査には放射性医薬品を体内に投与する。<br>
+                d. 核医学検査では生体機能の情報が得られる。<br>
+                e. 検査時にMRIのような強い磁場が使われる。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】核医学検査について正しいものはどれか。2つ選べ（22 問21）</p>
+                <div class="options-vertical">
+                    a. 放射性医薬品が体内のどこかに集まることを示すのには「集積」という用語を用いる。<br>
+                    b. 核医学検査前には食事制限といった前処置は基本的に不要である。<br>
+                    c. 核医学検査を受けた患者の排泄物に放射性物質が含まれることはない。<br>
+                    d. 核医学検査では投与する薬剤により異なる生体機能の情報が得られる。<br>
+                    e. 核医学検査はCT 検査と同様に患者家族が被曝することはない。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】核医学検査について正しいものはどれか。1つ選べ。（21 問26）</p>
+                <div class="options-vertical">
+                    a. 被ばくしない。<br>
+                    b. 生体機能を画像として得られる。<br>
+                    c. 空間分解能が高い。<br>
+                    d. 組織の弁別が可能である。<br>
+                    e. 患者に対する検査前処置は不要である。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射性医薬品の性質について正しいものはどれか。1つ選べ。（23 問7）</p>
+            <div class="options-vertical">
+                a. 半減期が長いほど検査に適している。<br>
+                b. すべての放射性医薬品は室温で数ヶ月保存できる。<br>
+                c. 放射性医薬品は投与後すぐに排泄されるため画像化には使えない。<br>
+                d. 放射性医薬品は特定の臓器や組織に集まりやすい設計がされている。<br>
+                e. 放射性医薬品を投与しても体外に放射線を出すことはない。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】核医学検査や核医学治療について正しいものを1つ選べ（22 問22）</p>
+                <div class="options-vertical">
+                    a. 外部から放射線を照射するため体内に放射性物質は残存しない。<br>
+                    b. 核医学検査には半減期の長い放射線核種が適している。<br>
+                    c. 放射性医薬品は安定性が高いため病院内で長期間保管可能である。<br>
+                    d. 体外に放出する放射線が強いため入院が必要となる核医学治療がある。<br>
+                    e. 家族を被曝させる恐れはないため日常生活において特に制限はない。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】核医学検査や核医学治療について正しいものはどれか。1つ選べ。（21 問27）</p>
+                <div class="options-vertical">
+                    a. 放射性医薬品は安定性が高いため病院内で長期間保管可能である。<br>
+                    b. 核医学検査には半減期の長い放射性核種が適している。<br>
+                    c. 外部から放射線を照射するため体内に放射性物質は残存しない。<br>
+                    d. 家族を被ばくさせる恐れはないため日常生活において特に制限はない。<br>
+                    e. 体外に放出する放射線が強いため入院が必要となる核医学治療がある。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】FDG-PET検査について正しいものはどれか。2つ選べ。（23 問8）</p>
+            <div class="options-vertical">
+                a. 検査前には前処置は特に不要である。<br>
+                b. FDGはブドウ糖類似物質であり、腫瘍細胞に取り込まれやすい。<br>
+                c. FDGは脳や尿路には集積しにくいため、頭蓋内・骨盤内病変の評価に適している。<br>
+                d. FDG-PET検査で集積が見られる箇所は悪性の病巣であると断定できる。<br>
+                e. FDG-PETは細胞の糖代謝を反映するため、悪性腫瘍以外の炎症や良性疾患でも集積が見られることがある。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】FDG-PET 検査について正しいものはどれか。2つ選べ（22 問23）</p>
+                <div class="options-vertical">
+                    a. FDG-PET 検査では摂食に特別な制限は不要である。<br>
+                    b. FDG-PET 検査は偽陽性の少ない検査である。<br>
+                    c. FDG-PET 検査は CT 検査で発見が難しい転移巣を発見できる場合がある。<br>
+                    d. FDG-PET 検査では糖の代謝を画像として捉えている。<br>
+                    e. FDG-PET 検査で集積が見られる箇所は悪性の病巣である可能性が高い。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】FDG-PET検査では何を画像として捉えているか、1つ選べ。（21 問28）</p>
+                <div class="options-vertical">
+                    a. 細胞密度の高さ<br>
+                    b. 糖代謝の程度<br>
+                    c. X線の吸収の程度<br>
+                    d. 磁気共鳴<br>
+                    e. 組織の悪性度<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <h2>[4. 画像診断とAI]</h2>
+
+        <div class="question-block">
+            <p>【問】造影 CT 画像に対して医療用 AI (artificial intelligence)を使用する前後の画像を示す。この AI が実施したタスクの分類として適切なものはどれか。1 つ選べ。（23 問23）
+            </p>
+            <img src="pic/23-23.png" sizes="50%">
+            <div class="options-vertical">
+                a. 特徴点推定<br>
+                b. 検出<br>
+                c. セグメンテーション<br>
+                d. 画像再構成<br>
+                e. 分類<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：c<br>
+						
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <div class="question-block">
+            <p>【問】次の文書は AI ソフトウェア「胸部 X 線画像肺結節検出プログラム」の添付文書の一部である。この AI ソフトウェアを人口 77 万人、肺結節の有病率 1%の集団 A に対して導入することを考える。AI
+                導入後、期待される陽性的中率に最も近いものはどれか。1 つ選べ。（23 問24）<br><br>
+                【使用目的又は効果】<br>
+                (略)<br><br>
+                【その他の注意事項】<br>
+                一般集団(集団 A と類似)を対象に撮影された胸部 X 線画像 200 例に対して医師単独、本ソフトウェア併用での読影実験を実施した。結果を表に示す。<br>
+                感度 (%) / 特異度(%)<br>
+                医師単独: 80.0 / 99.0<br>
+                ソフトウェア併用: 90.0 / 98.0<br></p>
+            <div class="options-vertical">
+                a. 約 0.5%<br>
+                b. 約 1%<br>
+                c. 約 3%<br>
+                d. 約 30%<br>
+                e. 約 45%<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+                        <img src="pic/matrix.png" sizes="50%">
+                    </p>
+                </div>
+            </details>
+
+            <div class="similar-question">
+                <p>【類題】AI ソフトウェア「胸部X線画像肺結節検出プログラム」の導入を考える。人口100万人、肺結節の有病率 0.01%の一般集団に対して、医師単独の場合と比較して増加する偽陽性者数
+                    (false-positive) に最も近いものはどれか。1つ選べ。（22 問39）<br><br>
+                    【使用目的又は効果】<br>
+                    (略)<br><br>
+                    【その他の注意事項】<br>
+                    一般集団を対象に撮影された胸部 X 線画像 200 例に対して医師単独、本ソフトウェア併用での読影実験を実施した。結果を表に示す。<br>
+                    感度(%) / 特異度(%)<br>
+                    医師単独: 70.0 / 99.0<br>
+                    ソフトウェア併用: 90.0 / 98.0<br></p>
+                <div class="options-vertical">
+                    a. 20 人<br>
+                    b. 100 人<br>
+                    c. 1000 人<br>
+                    d. 10000 人<br>
+                    e. 20000 人<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+						1000000*(1-0.0001)*(0.99-0.98)=9999
+                    </p>
+                </div>
+            </details>
+            </div>
+
+            <div class="similar-question">
+            <p>【類題】次の文章はAlソフトウエア「肺結節検出プログラム」の添付文書の一部と、このAIソフトウェアを使用して検査を行った症例の検査結果画像（画像A,B ともに同一断面）である。この検査結果の評価に関する次の文章のうち不適切なものはどれか。2つ選べ。（21 問17）<br><br>
+                【使用目的又は効果】<br>
+                (略)<br><br>
+                【その他の注意事項】<br>
+                肺癌が疑われる患者に対して撮影されたCT 画像50 組に対して医師単独、CAD 併用での読影実験を実施した。結果を示す。<br>
+                感度(%)<br>
+                医師単独: 60±5<br>
+                CAD併用: 80±5<br></p>
+                <img src="pic/21-17.png" sizes="50%">
+            <div class="options-vertical">
+                a. 画像A→画像B の順番にCT画像を読影する。<br>
+                b. 画像B→画像A の順番にCT画像を読影する。<br>
+                c. 左肺の結節はCADにより指摘されているので原発性肺癌と診断する。<br>
+                d. 左肺の境界不明瞭なすりガラス結節は炎症性結節が鑑別に挙がるため、短期間での経過観察を行う。<br>
+                e. 本ソフトウェアを併用することで見落とされる結節を50％減らすことが期待される。<br>
+            </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：b, c<br>
+                        b 先入観によるバイアスを防ぐため、医師はセグメンテーション前の画像から読影すべき。<br>
+                        c 診断と鑑別は医師が主体となって行うべき。<br>
+                        e 医師の見落とし：100-60=40%, CAD併用の見落とし：100-80=20% で、医師単独より半減しているといえる。
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】医療における AI 技術の利活用について述べられた次の文章のうち不適切なものはどれか。1 つ選べ。（23 問25）</p>
+            <div class="options-vertical">
+                a. 開発時のデータが対象患者集団を反映していないので AI 導入を見送った。<br>
+                b. AI 導入前に AI を使ってはいけない状況について明確にした。<br>
+                c. AI 導入時に使用する医師に対して講習会を開催した。<br>
+                d. AI 導入後に意図したとおりに稼働しているかモニタリングを行う。<br>
+                e. AI の誤判定に基づいた誤診が生じた場合、責任を負うのは AI 販売業者ではな AI 開発会社である。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：e
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】医療におけるAI技術の利活用について述べられた次の文章のうち不適切なものを1つ選べ。（22 問40）</p>
+                <div class="options-vertical">
+                    a. 対象患者集団とAI トレーニングに使用された集団とで背景因子が大きく異なるため、この AI ソフトウェアを導入しないことにした。<br>
+                    b. AI ソフトウェア使用下での誤診のうち、AIの予測が間違っていたことに起因するものはソフトウェア販売会社が責任を負う。<br>
+                    c. 2024年4月現在、日本ではAI 診断ソフトウェアの市販後学習は許可されていない。<br>
+                    d. AI ソフトウェアを導入するにあたり、どのような入力データが適切か添付文書で確認した。<br>
+                    e. AI ソフトウェア導入後もソフトウェアが意図したとおりに動作しているかモニタリングを実施した。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：b<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+            <div class="similar-question">
+                <p>【類題】医療におけるAI技術の利活用について述べられた次の文章のうち不適切なものはどれか、1つ選べ。（21 問18）</p>
+                <div class="options-vertical">
+                    a. AIのテストデータが対象患者集団を反映しているか精査する。<br>
+                    b. AIを使用する前に、導入に伴う患者や医療者へのリスクを評価する。<br>
+                    c. AI技術を利用した場合であっても診断、治療等を行う主体は医師であり、医師は最終的な判断の責任を負う。<br>
+                    d. AIに対するモニタリングは、使用中にモデル学習を行わないなど性能が変化しない場合は不要である。<br>
+                    e. AIソフトウェアがどのようなデータ、患者集団に適用できるのかを添付文書で確認した。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+						
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】AI (Artificial Intelligence) に関する次の文章のうち不適切なものを1つ選べ（22 問38）</p>
+            <div class="options-vertical">
+                a. AI とは一般に人間の知覚や知性を人工的に再現する技術、ソフトウェア、システムのことをいう。<br>
+                b. 回帰分析を含む機械学習では開発者が手動でパラメータを調整しなければ機械の振る舞いを決定できない。<br>
+                c. チューリングテストはAIの知的振る舞いを測る方法の1つである。<br>
+                d. 深層学習の表現力の高さを示すものの1つに「万能近似定理」がある。<br>
+                e. 深層学習を利用したAI モデルの開発には比較的多数のデータが用いられる。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：b<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】AI (artificial intelligence)に関する次の文章のうち不適切なものはどれか、1つ選べ。（21 問16）</p>
+                <div class="options-vertical">
+                    a. AIとは一般に人間の知覚や知性を人工的に再現する技術、ソフトウェア、システムのことをいう。<br>
+                    b. 回帰分析を含む機械学習は広義のAIに含まれる。<br>
+                    c. 深層学習は多数のパーセプトロン（生物の神経細胞を模倣した計算ユニット）を用いることが特徴である。<br>
+                    d. 深層学習を利用したAIモデルの開発には比較的少数のデータが用いられる。<br>
+                    e. 深層学習の表現力の高さを示すものの1つに「万能近似定理」がある。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：d<br>
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <h2>[5. 放射線治療]</h2>
+
+        <div class="question-block">
+            <p>【問】放射線の単位と強さについて正しいのはどれか。2つ選べ。（23 問31）</p>
+            <div class="options-vertical">
+                a. Bq(ベクレル)とは放射性物質が放射線を出す能力の指標である。<br>
+                b. Gy(グレイ)とは放射線が生物へ与える影響に関する指標である。<br>
+                c. Sv(シーベルト)とは放射線によって物質が受けるエネルギーの指標である。<br>
+                d. 放射線治療で用いられるX線のエネルギーは診断用に比べて低い。<br>
+                e. 高エネルギーX線は表在部から少し入ったところに線量のピークを持つ。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a, e<br>
+						
+                    </p>
+                </div>
+            </details>
+            <div class="similar-question">
+                <p>【類題】放射線の単位と強さについて正しいのはどれか。2つ選べ（22 問10）</p>
+                <div class="options-vertical">
+                    a. Bq（ベクレル）とは放射性物質が放射線を出す能力の指標である。<br>
+                    b. Gy（グレイ）とは放射線が生物へ与える影響に関する指標である。<br>
+                    c. Sv（シーベルト）とは放射線によって物質が受けるエネルギーの指標である。<br>
+                    d. 放射線治療で用いられるX線のエネルギーは診断用に比べて低い。<br>
+                    e. 粒子線は止まる寸前に大きなエネルギーを与える（ブラッグ・ピーク）。<br>
+                </div>
+                <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a, e<br>
+                    </p>
+                </div>
+            </details>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線治療の4つのR(Repair, Reoxygenation, Redistribution, Repopulation)に関する記述について誤っているものはどれか。2つ選べ。（23 問40）</p>
+            <div class="options-vertical">
+                a. 単回照射は4つのRの特性を活かす治療戦略である。<br>
+                b. Repairは亜致死損傷からの回復に関与し正常組織保護に寄与する。<br>
+                c. Reoxygenationにより腫瘍内の低酸素細胞が酸素化され感受性が高まる。<br>
+                d. Redistributionにより放射線抵抗性のS期細胞が感受性の高いG2/M期に移行する。<br>
+                e. Repopulationは正常組織の回復に有利に働き、腫瘍には影響を与えない。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a, e<br>
+                        Repopulationは腫瘍細胞にも起きる。						
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線治療に関して正しいのはどれか。2 つ選べ。（23 問34）</p>
+            <div class="options-vertical">
+                a. 緩和的照射は、患者の症状軽減を目的に比較的短期間で行われる。<br>
+                b. 良性疾患に放射線治療を行うことは倫理的に認められていない。<br>
+                c. 週 5 日の治療が基本であり、祭日にも治療を実施する。<br>
+                d. 寡分割照射では 1 日 1 回、週 2 回程度の頻度で行う。<br>
+                e. 1 日複数回の照射(hyperfractionation)は特殊な状況では行われることがある。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】放射線治療で正しいのはどれか。2つ選べ（22 問3）</p>
+                <div class="options-vertical">
+                    a. 1日複数回照射することはない。<br>
+                    b. 緩和照射は短期間で実施される。<br>
+                    c. 良性疾患に放射線治療が行われることがある。<br>
+                    d. 放射線治療は毎日治療するので、土・日曜日にも実施される。<br>
+                    e. 通常分割照射で総線量 70 Gy まで行う場合、4週間程度必要である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線治療について誤っているのはどれか。1 つ選べ。（23 問30）</p>
+            <div class="options-vertical">
+                a. 理学的所見はターゲット設定において重要な要素の一つである。<br>
+                b. 強度変調放射線治療(IMRT)は正常組織の線量を低減させることができる。<br>
+                c. 定位放射線照射(SRI)は数 mm 以内の精度で放射線を集中させる方法である。<br>
+                d. 粒子線治療はブラッグピークによって腫瘍に高い線量を集中的に投与することができる。<br>
+                e. 遠隔操作式後装填方式(RALS)は医療従事者の被ばくが避けられない。<br>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線治療における治療計画体積について誤っているのはどれか。1つ選べ（22 問9）</p>
+            <div class="options-vertical">
+                a. OAR (organ at risk) とは放射線が照射される場合に注意すべき臓器である。<br>
+                b. GTV (gross tumor volume) とは画像や触診で確認できる腫瘍体積である。<br>
+                c. CTV (clinical target volume) とは顕微鏡的な進展範囲を含む体積である。<br>
+                d. ITV (internal target volume) とは腫瘍内で特に線量を多く投与すべき体積である。<br>
+                e. PTV (planning target volume) とは毎日の治療における設定誤差を含めた体積である。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】放射線治療における治療計画体積について誤っているのはどれか、1つ選べ。（21 問32）</p>
+                <div class="options-vertical">
+                    a. GTV (gross tumor volume) とは画像や触診で確認できる腫瘍体積である。<br>
+                    b. CTV (clinical target volume) とは顕微鏡的な進展範囲を含む体積である。<br>
+                    c. ITV (internal target volume) とは不随意な臓器移動（呼吸など）を考慮した体積である。<br>
+                    d. PTV (planning target volume) は毎日の治療における設定誤差を含めた体積である。<br>
+                    e. OAR (organ at risk) とは放射線が照射される場合に注意すべきリスク臓器である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】密封小線源治療で正しいのはどれか、2つ選べ。（21 問33）</p>
+            <div class="options-vertical">
+                a. 192Ir、125I などの線源がある。<br>
+                b. β線を利用した治療である。<br>
+                c. 密封小線源の線量分布は距離の2乗に反比例して減弱する。<br>
+                d. Remote after loading system (RALS) は前立腺癌の永久挿入療法に用いる。<br>
+                e. 高線量率による小線源治療では医療従事者の被ばくが問題となりやすい。<br>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】脳腫瘍の放射線治療に関して正しいのはどれか。1 つ選べ。（23 問35）</p>
+            <div class="options-vertical">
+                a. 髄芽腫では全脳全脊髄照射が適応されることがある。<br>
+                b. 髄膜腫は放射線治療の効果が乏しく、適応外である。<br>
+                c. 膠芽腫では放射線治療は禁忌とされる。<br>
+                d. 胚細胞腫は放射線抵抗性であり、手術が主たる治療となる。<br>
+                e. 乏突起膠腫では放射線治療の有効性は確立していない。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】脳腫瘍の放射線治療で正しいのはどれか。1つ選べ。（22 問4）</p>
+                <div class="options-vertical">
+                    a. 胚細胞腫（芽細胞腫）は放射線感受性が高い。<br>
+                    b. 膠芽腫では全脳全脊髄照射を行う。<br>
+                    c. 星細胞腫は放射線治療の適応とはならない。<br>
+                    d. 髄膜腫は治療を行う場合には放射線治療が第一選択である。<br>
+                    e. 退形成性星細胞腫では 30 Gy 程度でコントロール可能である。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】脳腫瘍の放射線治療で正しいのはどれか、1つ選べ。（21 問34）</p>
+                <div class="options-vertical">
+                    a. 星細胞腫は放射線治療の適応とはならない。<br>
+                    b. 退形成性星細胞腫では 40Gy 程度でコントロール可能である。<br>
+                    c. 髄芽腫では全脳全脊髄照射を行う。<br>
+                    d. 膠芽腫は 60Gy まで必要である。<br>
+                    e. 髄膜腫は治療を行う場合には放射線治療が第一選択である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】頭頸部癌に関して誤っているのはどれか。1 つ選べ。（23 問36）</p>
+            <div class="options-vertical">
+                a. 機能温存を目的として放射線治療が選択されることがある。<br>
+                b. ヒトパピローマウイルス(HPV)関連の中咽頭癌は予後不良である。<br>
+                c. 初期の声門癌は放射線単独治療が適応されうる。<br>
+                d. 上咽頭癌 I 期では放射線治療が標準治療とされる。<br>
+                e. 局所進行の上顎洞癌では、動注化学療法との併用が検討される。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】頭頸部癌で誤っているのはどれか。1つ選べ（22 問5）</p>
+                <div class="options-vertical">
+                    a. 放射線治療の利点は機能温存できることである。<br>
+                    b. 上咽頭癌 I 期は放射線治療のよい適応である。<br>
+                    c. 声門癌 I 期は放射線治療のよい適応である。<br>
+                    d. 局所進行上顎洞癌に対する放射線治療に動注化学療法を併用する。<br>
+                    e. 中咽頭癌はヒトパピローマウイルス（HPV）感染があると予後が悪い。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】頭頸部癌で誤っているのはどれか、1つ選べ。（21 問35）</p>
+                <div class="options-vertical">
+                    a. 舌癌は舌縁に好発する。<br>
+                    b. 上咽頭癌 I 期は放射線治療のよい適応である。<br>
+                    c. 声門癌 I 期は放射線治療のよい適応である。<br>
+                    d. 局所進行上顎洞癌に対する放射線治療に動注化学療法を併用する。<br>
+                    e. 中咽頭癌はヒトパピローマウイルス (HPV) 感染があると予後が悪い。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】早期乳癌における放射線治療について正しいのはどれか。2 つ選べ。（23 問37）</p>
+            <div class="options-vertical">
+                a. 乳房温存術後の放射線治療には接線照射が用いられる。<br>
+                b. 寡分割照射も現在では治療効果と安全性が確立されている。<br>
+                c. 放射線肺炎は乳房照射では起こらない。<br>
+                d. 妊娠中であっても、乳房は子宮から離れているため照射可能である。<br>
+                e. 乳房温存術は乳房全摘よりも治療成績に劣る。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】早期乳癌の放射線治療で正しいのはどれか。2つ選べ（22 問6）</p>
+                <div class="options-vertical">
+                    a. 接線照射で行う。<br>
+                    b. 副作用として放射線肺炎が起こることがある。<br>
+                    c. 寡分割照射は通常分割照射よりも効果が劣る。<br>
+                    d. 乳房温存術は乳房全摘よりも治療成績に劣る。<br>
+                    e. 子宮と乳房は離れているので、妊娠中にも照射することができる。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】早期乳癌の放射線治療で正しいのはどれか、2つ選べ。（21 問37）</p>
+                <div class="options-vertical">
+                    a. 接線照射で行う。<br>
+                    b. 副作用として皮膚炎が起こる。<br>
+                    c. 寡分割照射は通常分割照射よりも効果が劣る。<br>
+                    d. 放射線肺炎が起こることはない。<br>
+                    e. 手術温存術は手術全摘よりも治療成績に劣る。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】子宮頸癌の治療に関して正しいのはどれか。2 つ選べ。（23 問38）</p>
+            <div class="options-vertical">
+                a. 1 期(例:IB1)の治療選択肢には手術と放射線治療の両方がある。<br>
+                b. III 期以降では、化学放射線療法が標準的治療である。<br>
+                c. IVA 期は手術と術後照射で根治を目指すことが第一選択である。<br>
+                d. 放射線治療中には直腸出血などの急性期有害事象が頻発する。<br>
+                e. リンパ節転移がなければ、子宮頸部の腫瘍のみに照射すべきである。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】子宮頸癌に対する治療で正しいのはどれか。2つ選べ（22 問7）</p>
+                <div class="options-vertical">
+                    a. 子宮頸癌 IB 期は手術が放射線治療より治療成績がよい。<br>
+                    b. 子宮頸癌 IIB 期では全骨盤領域の照射は不要である。<br>
+                    c. 子宮頸癌 IIIB 期の放射線治療では化学療法を併用すべきである。<br>
+                    d. 子宮頸癌 IVA 期は原則として手術適応はない。<br>
+                    e. 放射線治療の有害事象である下血は治療終了後すぐに起こることが多い。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】子宮頸癌に対する治療として誤っているのはどれか、1つ選べ。（21 問38）</p>
+                <div class="options-vertical">
+                    a. 子宮頸癌 FIGO IIB期に対して外照射のみではなく密封小線源治療も併用する。<br>
+                    b. 子宮頸癌 FIGO IIB期に対して原則として手術適応はない。<br>
+                    c. 子宮頸癌 FIGO IIB期の放射線治療では化学療法を併用すべきである（同時化学放射線療法）。<br>
+                    d. 子宮頸癌 IIB期の外照射では子宮の病変とその周囲を照射範囲とする。<br>
+                    e. 放射線治療の有害事象である下血は、治療終了後6ヶ月以降に起こることが多い。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線治療により手術とほぼ同等の効果が期待できる疾患はどれか、1つ選べ。（21 問36）</p>
+            <div class="options-vertical">
+                a. 進行胃癌<br>
+                b. 早期膵癌<br>
+                c. 進行胆嚢癌<br>
+                d. 早期直腸癌<br>
+                e. 早期食道癌<br>
+            </div>
+        </div>
+
+        <h2>[6. 放射線防護]</h2>
+
+        <div class="question-block">
+            <p>【問】放射線被ばくに関して誤っているのはどれか。1 つ選べ。（23 問33）</p>
+            <div class="options-vertical">
+                a. 確率的影響には線量の関値がないとされている。<br>
+                b. 実効線量は、等価線量に組織荷重係数をかけて算出される。<br>
+                c. Sv (シーベルト)は実効線量と等価線量の共通単位である。<br>
+                d. 自然放射線による年間被ばく線量はおよそ数十 mSv である。<br>
+                e. 放射線防護では、時間･距離･遮へいの原則が基本である。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】放射線被ばくで誤っているのはどれか。1つ選べ（22 問2, 21 問30）</p>
+                <div class="options-vertical">
+                    a. 確率的影響はしきい値がないとされている。<br>
+                    b. 組織荷重係数を加味して実効線量を求める。<br>
+                    c. 等価線量の単位は Sv（シーベルト）である。<br>
+                    d. 自然放射線による被ばくは年間 1-2 mSv 程度である。<br>
+                    e. 放射線防護には、知識、遮へい、距離の3原則を守る。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】放射線防護に関して正しいのはどれか。1 つ選べ。（23 問32）</p>
+            <div class="options-vertical">
+                a. X 線透視室であっても X 線を出していなければ、一般の立ち入りは自由である。<br>
+                b. 鉛エプロンなどの防護具を装着しても、被ばく線量がゼロになるわけではない。<br>
+                c. β 線による外部被ばくは、常に α 線による被ばくより危険である。<br>
+                d. 医療被ばくは診断や治療のためであるため、正当化や最適化は不要である。<br>
+                e. 放射線業務従事者には、希望する場合のみ線量モニタが配布される。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】放射線被ばくで正しいのはどれか。1つ選べ（22 問1）</p>
+                <div class="options-vertical">
+                    a. 管理区域内では、放射線業務従事者が被ばくすることはほとんどない。<br>
+                    b. プロテクターを付けていても、被ばくを完全に0にすることはできない。<br>
+                    c. 放射性同位元素からの外部被ばくで最も問題となるのは、アルファ線である。<br>
+                    d. 医療での被ばくは患者の利益が大きいため、その不利益を考慮する必要はない。<br>
+                    e. 血管造影で管理区域に入る時、希望者には被ばくモニタリングを行わなくてよい。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】急性放射線症で正しいものはどれか。1つ選べ。（21 問29）</p>
+            <div class="options-vertical">
+                a. ヒトのLD50/60（全身照射後60日間に50％死亡する線量）は約4 Gyである。<br>
+                b. 造血器系症候群で死亡することはない。<br>
+                c. 消化器系症候群は下痢止めを処方すれば救命できる。<br>
+                d. 神経血管系症候群は2 Gyの被ばくでも起こることがある。<br>
+                e. 白血病による死亡も急性放射線症に分類される。<br>
+            </div>
+            <details class="explanation-container">
+                <summary class="explanation-title">解説</summary>
+                <div class="explanation-content">
+                    <p>
+                        <!--ここに解説の本文を記述-->
+                        解答：a<br>
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <h2>[7. 胆道の画像診断]</h2>
+
+        <div class="question-block">
+            <p>【問】急性胆囊炎の画像所見として正しいものはどれか。1 つ選べ。（23 問3）</p>
+            <div class="options-vertical">
+                a. 胆石の描出は CT よりも MRI の方が優れている。<br>
+                b. 胆囊壁のびまん性で不整な肥厚と造影効果が特徴の 1 つである。<br>
+                c. 胆囊ポリープを併発することが多い。<br>
+                d. 胆囊腺筋腫症の併発が高頻度に認められる。<br>
+                e. 急性炎症を反映して肝胆囊床に造影効果不良域を認めることがある。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】急性胆嚢炎の画像所見として誤っているものはどれか。1つ選べ。（22 問18）</p>
+                <div class="options-vertical">
+                    a. 胆嚢は増大する。<br>
+                    b. 胆嚢壁浮腫を認める。<br>
+                    c. 胆石を伴わないこともある。<br>
+                    d. 胆石はCT で MRI よりも高率に同定できる。<br>
+                    e. ダイナミック造影で肝胆嚢床に早期濃染を認める。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】急性胆嚢炎に関して正しい記載はどれか、1つ選べ。（21 問11）</p>
+                <div class="options-vertical">
+                    a. 胆嚢癌を併発することが多い。<br>
+                    b. 内視鏡的胆道ドレナージが第一選択となる。<br>
+                    c. 水分制限と蛋白制限食が予防に有効である。<br>
+                    d. Mirizzi 症候群をきたしうる。<br>
+                    e. 原発性胆汁性胆管炎を背景とした患者に生じることが多い。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】閉塞性黄疸の原因として考えにくいものはどれか。2 つ選べ。（23 問4）</p>
+            <div class="options-vertical">
+                a. 膵癌<br>
+                b. 十二指腸癌<br>
+                c. 胆管癌<br>
+                d. 胆囊癌<br>
+                e. 肝細胞癌<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】画像検査で肝内胆管の拡張、総胆管の拡張を認める。原因として最も考えにくいものはどれか。1つ選べ。（22 問19, 21 問14）</p>
+                <div class="options-vertical">
+                    a. 肝細胞癌<br>
+                    b. 胆管癌<br>
+                    c. 膵頭部癌<br>
+                    d. 乳頭部癌<br>
+                    e. 総胆管結石<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】原発性硬化性胆管炎について正しい記載はどれか。1 つ選べ。（23 問5）</p>
+            <div class="options-vertical">
+                a. 肝内胆管の線維性狭窄を生じる進行性の慢性炎症疾患である。<br>
+                b. 好発年齢は 10 歳代である。<br>
+                c. 背景には家族性大腸ポリポーシスの合併が高頻度に認められる。<br>
+                d. 胆管癌が発生することもある。<br>
+                e. 薬物療法が奏功しやすい。<br>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】胆嚢頸部の結石による圧排、炎症により総肝管狭窄をきたし、急性胆管炎や閉塞性黄疸が引き起こされる病態をなんというか。正しいものを1つ選べ。（22 問20）</p>
+            <div class="options-vertical">
+                a. Mirizzi 症候群<br>
+                b. Lemmel 症候群<br>
+                c. Rotor 症候群<br>
+                d. Gilbert 症候群<br>
+                e. Najjar 症候群<br>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】胆嚢病変の画像を提示する。この症例に対する処置として、最も適切なものはどれか、1つ選べ。（21 問10）</p>
+            <div class="options-vertical">
+                a. 経過観察<br>
+                b. 経皮的胆嚢ドレナージ<br>
+                c. 腹腔鏡下胆嚢摘出術<br>
+                d. 開腹胆嚢摘出術<br>
+                e. 拡大胆嚢摘出術<br>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[8. 膵の画像診断]</h2>
+
+        <div class="question-block">
+            <p>【問】膵囊胞性病変について正しいものはどれか。1 つ選べ。（23 問17）</p>
+            <div class="options-vertical">
+                a. 囊胞性病変の評価は CT よりも MRI の方が優れている。<br>
+                b. 主膵管型 IPMN は分枝型 IPMN よりも頻度が高い。<br>
+                c. 粘液性囊胞性腫瘍は主膵管と連続性を有するのが特徴である。<br>
+                d. 漿液性囊胞性腫瘍は主膵管と連続性を有するのが特徴である。<br>
+                e. 分枝型 IPMN は主膵管型 IPMN より悪性の頻度が高い。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】嚢胞性膵病変について正しいのはどれか。2つ選べ（22 問34）</p>
+                <div class="options-vertical">
+                    a. 分枝型膵管内乳頭粘液性腫瘍 (IPMN) は主膵管と連続性を有する。<br>
+                    b. 分枝型 IPMN において主膵管径は悪性のリスクと関係ない。<br>
+                    c. 漿液性嚢胞性腫瘍の隔壁は強く造影される。<br>
+                    d. 粘液性嚢胞性腫瘍はほぼ全例男性に生じる。<br>
+                    e. 粘液性嚢胞性腫瘍の壁は強く造影される。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】膵癌について正しいものはどれか。1 つ選べ。（23 問18）</p>
+            <div class="options-vertical">
+                a. 膵癌は多血性腫瘍である。<br>
+                b. MRCP は限局性膵炎との鑑別に有用である。<br>
+                c. 拡散強調像は微小膵癌の検出に有用ではない。<br>
+                d. 門脈に浸潤している場合には手術不能である。<br>
+                e. 好発年齢が充実性偽乳頭状腫瘍(solid pseudopapillary neoplasm)と類似している。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】膵癌（浸潤性膵管癌）の画像診断について正しいのはどれか、2つ選べ。（21 問13）</p>
+                <div class="options-vertical">
+                    a. 動脈相で強く濃染するのが典型像である。<br>
+                    b. 腫瘍より下流（尾側）の主膵管拡張を伴うのが特徴である。<br>
+                    c. 拡散強調像が微小膵癌の検出に有用である。<br>
+                    d. 平衡相で遅延性に造影されるのが典型像である。<br>
+                    e. 病変部の主膵管がMRCPで描出されないことが特徴である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】膵内分泌腫瘍について誤っているものはどれか。1 つ選べ。（23 問19）</p>
+            <div class="options-vertical">
+                a. 膵内分泌腫瘍は多血性腫瘍である。<br>
+                b. 機能性と非機能性腫瘍は画像で容易に鑑別できる。<br>
+                c. 血管や主膵管に浸潤することはない。<br>
+                d. 核医学検査は有用ではない。<br>
+                e. 均一に造影される病変は悪性度が高い。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】充実性膵病変について正しいのはどれか。2つ選べ（22 問35）</p>
+                <div class="options-vertical">
+                    a. 病変内部に主膵管が貫通している場合は、膵癌よりも腫瘤形成性膵炎の可能性が高い。<br>
+                    b. 内分泌腫瘍は悪性度が高いほど動脈相での造影効果が強い。<br>
+                    c. 内分泌腫瘍 (NET G1) は主膵管内に進展することが多い。<br>
+                    d. Solid-pseudopapillary neoplasm は石灰化を伴わない。<br>
+                    e. 典型的な浸潤性膵管癌は乏血性腫瘤の像を呈する。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】膵病変の画像診断について正しいのはどれか、2つ選べ。（21 問15）</p>
+                <div class="options-vertical">
+                    a. 膵内分泌腫瘍（NET: neuroendocrine tumor）はソマトスタチン受容体シンチグラフィで集積を認めるのが典型像である。<br>
+                    b. 粘液性嚢胞性腫瘍は主膵管と交通を有するのが特徴である。<br>
+                    c. 漿液性嚢胞性腫瘍は石灰化を伴わない。<br>
+                    d. Solid-pseudopapillary neoplasm は動脈相で濃染するのが典型像である。<br>
+                    e. 分枝型膵管内乳頭粘液性腫瘍において主膵管径10mm以上の拡張は悪性のリスクが高い所見である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】膵の画像診断について正しいのはどれか。2つ選べ（22 問33）</p>
+            <div class="options-vertical">
+                a. 嚢胞性病変と充実性病変の区別には MRI よりもCT の方が有用である。<br>
+                b. 膵癌の肝転移の診断能はEOB 造影 MRI よりも CTの方が高い。<br>
+                c. 石灰化の有無は造影 CT よりも単純 CTで判断すべきである。<br>
+                d. 正常膵実質は脂肪抑制 T1 強調像で高信号を呈する。<br>
+                e. 腫瘤の診断に有用な核医学検査はない。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】膵の画像診断について正しいのはどれか、2つ選べ。（21 問12）</p>
+                <div class="options-vertical">
+                    a. 嚢胞性病変と充実性病変の区別にはCTよりもMRIのほうが有用である。<br>
+                    b. MRCP撮像時には造影剤の使用が必須である。<br>
+                    c. 膵癌の肝転移の診断能はCTよりもEOB造影MRIのほうが高い。<br>
+                    d. 石灰化の有無は単純CTよりも造影CTで判断すべきである。<br>
+                    e. 正常膵実質はT1強調像で低信号を呈する。<br>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[9. 超音波総論・乳腺・女性骨盤]</h2>
+
+        <div class="question-block">
+            <p>【問】乳房超音波画像を図に示す。使用しているプローブ(探触子)はどれか。（23 問15, 22 問36）</p>
+            <div class="options-vertical">
+                a. セクタ型<br>
+                b. リニア型<br>
+                c. コンベックス型<br>
+                d. トライアングル型<br>
+                e. マイクロコンベックス型
+            </div>
+            <div class="similar-question">
+                <p>【類題】腹部超音波検査に用いるプローブはどれか、1つ選べ。（21 問24）</p>
+                <div class="options-vertical">
+                    a. アクティブ型<br>
+                    b. コンベックス型<br>
+                    c. セクタ型<br>
+                    d. パッシブ型<br>
+                    e. リニア型
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】正しいのはどれか。2 つ選べ。（23 問16）</p>
+            <div class="options-vertical">
+                a. 造影剤を用いている。<br>
+                b. カラードプラ画像である。<br>
+                c. エラストグラフィ画像である。<br>
+                d. 図の矢印は拍動流を示す。<br>
+                e. 図の矢印は画像上部へ向かう血流を示す。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】超音波検査について誤っているのはどれか、2つ選べ。（21 問25）</p>
+                <div class="options-vertical">
+                    a. カラードプラではプローブに近づく血流が青く表示される。<br>
+                    b. 空気による死角が存在する。<br>
+                    c. 周波数が低いと減衰しやすい。<br>
+                    d. 術者の技量により診断能が変化する。<br>
+                    e. 腫瘍の硬さを評価できる。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】36で呈示した乳房超音波画像上の、後方エコーについて正しいのはどれか。（22 問37）</p>
+            <div class="options-horizontal">
+                a. 増強 b. 不変 c. 減弱 d. 消失
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[10. 肝の画像診断]</h2>
+
+        <div class="question-block">
+            <p>【問】肝臓から流出する脈管は以下のうちどれか。2 つ選べ。（23 問26）</p>
+            <div class="options-vertical">
+                a. 胆管<br>
+                b. 門脈<br>
+                c. 肝静脈<br>
+                d. 肝動脈<br>
+                e. 腹部大動脈<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】肝臓に流入する脈管は以下のうちどれか。2つ選べ（22 問30）</p>
+                <div class="options-vertical">
+                    a. 胆管<br>
+                    b. 肝静脈<br>
+                    c. 門脈<br>
+                    d. 肝動脈<br>
+                    e. 下大静脈<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】肝細胞癌の画像所見について正しいのはどれか。2 つ選べ。（23 問27）</p>
+            <div class="options-vertical">
+                a. 単純 CT で高吸収を示す。<br>
+                b. 肝動脈相で早期濃染を示す。<br>
+                c. 門脈相で遷延性濃染を示す。<br>
+                d. 平衡相で被膜濃染を認める。<br>
+                e. EOB 造影肝細胞相で高信号を示すことが多い。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】肝細胞癌の典型的な画像所見について誤っているのはどれか、1つ選べ。（21 問21）</p>
+                <div class="options-vertical">
+                    a. 単純CTで肝より低吸収を示す。<br>
+                    b. 造影CT肝動脈相では早期濃染を示す。<br>
+                    c. 造影CT門脈相では wash out を認める。<br>
+                    d. 造影CT平衡相ではコロナ濃染を認める。<br>
+                    e. EOB造影MRI肝細胞相では低信号を示す。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】転移性肝癌について正しいのはどれか。2 つ選べ。（23 問28）</p>
+            <div class="options-vertical">
+                a. 肝動脈相でリング状濃染を示す。<br>
+                b. 門脈相や平衡相で遷延性濃染を示す。<br>
+                c. 消化器癌からの初発転移臓器は肺が最も多い。<br>
+                d. EOB 造影肝細胞相では高信号を示すことが多い。<br>
+                e. 腫瘍のコントラストが最も良いのは平衡相である。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】転移性肝癌について誤っているのはどれか。1つ選べ（22 問32）</p>
+                <div class="options-vertical">
+                    a. 単純 CTで腫瘤内部に石灰化を認めることがある。<br>
+                    b. 造影 CT 肝動脈相ではリング状濃染を示す。<br>
+                    c. 造影 CT 門脈相では低吸収域として描出される。<br>
+                    d. リンパ行性転移が最も多い（血行性転移の誤り）。<br>
+                    e. EOB 造影 MRI 肝細胞相では低信号を示す。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】EOB造影 MRI について正しいのはどれか。2つ選べ。（22 問31）</p>
+            <div class="options-vertical">
+                a. 転移性肝癌の診断において推奨される。<br>
+                b. 早期肝細胞癌の検出には推奨されない。<br>
+                c. 肝細胞癌の術前診断において推奨される。<br>
+                d. 正常肝細胞はEOB 造影剤を取り込む。<br>
+                e. 投与した薬剤のおよそ 50%が尿中に、50%が胆汁中に排泄される。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】EOB造影MRIについて誤っているのはどれか、2つ選べ。（21 問20）</p>
+                <div class="options-vertical">
+                    a. 転移性肝癌の診断において推奨される。<br>
+                    b. 早期肝細胞癌の検出には適していない。<br>
+                    c. 肝細胞癌の診断において推奨される。<br>
+                    d. 正常肝細胞はEOB造影剤を取り込む。<br>
+                    e. 1検査あたり10分程度の検査時間が必要である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】細胞外液性造影剤によって動脈相でより強く濃染するのは以下のうちどれか、2つ選べ。（21 問19）</p>
+            <div class="options-vertical">
+                a. 肝細胞<br>
+                b. 細胞外液腔<br>
+                c. 線維化成分<br>
+                d. 癌細胞<br>
+                e. 毛細血管<br>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[11. 胸部画像診断]</h2>
+
+        <div class="question-block">
+            <p>【問】胸部単純写真に関して、以下の選択肢のうち、正しいものはどれか。1 つ選べ。（23 問20）</p>
+            <div class="options-vertical">
+                a. 心陰影について、左第 3 弓は左心室である。<br>
+                b. 心陰影について、右第 2 弓は左心房である。<br>
+                c. Extrapleural sign を伴う陰影は肺内陰影である。<br>
+                d. 奇静脈食道線は、前縦隔腫瘍でシルエットサイン陽性となる。<br>
+                e. Air bronchogram sign を伴う陰影は肺内陰影である。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】胸部単純写真に関して、正しいものはどれか。1つ選べ。（22 問15）</p>
+                <div class="options-vertical">
+                    a. 心陰影について、右第1弓は右心房である。<br>
+                    b. 心陰影について、左第4弓は右心室である。<br>
+                    c. 右傍気管線は、右肺中葉の腫瘤でシルエットサイン陽性となる。<br>
+                    d. air bronchogram sign を伴う陰影は肺内陰影である。<br>
+                    e. 胸部下行大動脈線は、前縦隔腫瘍でシルエットサイン陽性となる。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】以下の選択肢のうち、正しいものはどれか、1つ選べ。（21 問1）</p>
+                <div class="options-vertical">
+                    a. 胸部単純写真での胸部下行大動脈線は、右肺下葉の腫瘍でシルエットサイン陽性となる。<br>
+                    b. 胸腺腫では腫瘍部に air bronchogram sign が見られる。<br>
+                    c. 単純写真にて、肺細胞癌では extrapleural sign が見られやすい。<br>
+                    d. 胸部単純写真での心陰影について、右第2弓は右心房である。<br>
+                    e. 胸部単純写真での心陰影について、左第1弓は肺動脈である。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】以下の選択肢のうち、正しいものはどれか。1 つ選べ。（23 問21）</p>
+            <div class="options-vertical">
+                a. CT にて両肺に蜂巣肺が見られれば、薬剤性肺障害を考えやすい。<br>
+                b. 肺水腫の CT 像では、両肺上葉胸膜下に浸潤影が見られやすい。<br>
+                c. 肺腺癌は、空洞を形成しやすい。<br>
+                d. サルコイドーシスの肺病変は、空洞を形成しやすい。<br>
+                e. 胸部単純写真にて、急性肺血栓塞栓症での肺野の透過性亢進を Westermark sign とい う。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】以下の選択肢のうち、正しいものはどれか。1つ選べ。（22 問16）</p>
+                <div class="options-vertical">
+                    a. 急性肺血栓塞栓症のCT 検査では、動脈相で下肢を撮影するべきである。<br>
+                    b. 肺気腫のCT像では tree-in-bud 像が特徴的である。<br>
+                    c. 肺扁平上皮癌は、CT にて淡い陰影を示しやすい。<br>
+                    d. 両肺上葉優位に分布する粒状影は、usual interstitial pneumonia（通常型間質性肺炎）を疑う像である。<br>
+                    e. COVID-19 肺炎では胸水は伴いにくい。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】以下の選択肢のうち、正しいものはどれか、1つ選べ。（21 問2）</p>
+                <div class="options-vertical">
+                    a. 急性大動脈解離では、単純写真にて肺野透過性亢進（Westermark sign）が見られる。<br>
+                    b. 急性肺血栓塞栓症では、CT肺野条件にて tree-in-bud 像が見られる。<br>
+                    c. 肺腺癌では、CT肺野条件にて空洞形成が見られやすい。<br>
+                    d. 両肺胸膜下のすりガラス陰影は、usual interstitial pneumonia（通常型間質性肺炎）を疑う像である。<br>
+                    e. COVID-19肺炎では、胸水貯留は伴いにくい。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】以下の選択肢のうち、正しいものはどれか。1 つ選べ。（23 問22）</p>
+            <div class="options-vertical">
+                a. 肺癌症例にて脳転移の評価には、FDG-PET/CT は不向きである。<br>
+                b. 肺の小葉内では、肺動脈と肺静脈が伴走する。<br>
+                c. 石灰化を伴う後縦隔腫瘍では、胸腺腫を疑う。<br>
+                d. 脂肪を含む前縦隔腫瘍では、神経原生腫瘍が考えやすい。<br>
+                e. 肺気腫では、tree-in-bud 像が見られやすい。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】以下の選択肢のうち、正しいものはどれか。1つ選べ（22 問17）</p>
+                <div class="options-vertical">
+                    a. CT にて、薬剤性肺障害と COVID-19 肺炎との鑑別は容易である。<br>
+                    b. HRCT にて、肺動脈は小葉間隔壁に沿って走行する。<br>
+                    c. 単純 CTで石灰化を伴う前縦隔腫瘤では、悪性リンパ腫を疑う。<br>
+                    d. 後縦隔腫瘍では神経原性腫瘍の頻度が高い。<br>
+                    e. サルコイドーシスによる肺野陰影では空洞形成を伴いやすい。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】以下の説明文のうち、正しいものはどれか、1つ選べ。（21 問3）</p>
+                <div class="options-vertical">
+                    a. CTにて、薬剤性肺障害とウイルス性肺炎との鑑別は容易である。<br>
+                    b. 気管支拡張の有無は、気管支に伴走する肺静脈の径と比較して評価する。<br>
+                    c. サルコイドーシスでは、広義間質に沿った粒状影は上中肺野優位に見られやすい。<br>
+                    d. 縦隔腫瘍では神経原性腫瘍が多い。<br>
+                    e. 肺癌症例にて、脳転移の評価のためには FDG-PET/CT が適している。<br>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[12. 救急の画像診断]</h2>
+
+        <div class="question-block">
+            <p>【問】大動脈解離・大動脈瘤に関する次の記述のうち、誤っているものを 1 つ選べ。（23 問9, 21 問5）</p>
+            <div class="options-vertical">
+                a. 大動脈解離とは「中膜のレベルで2層に剥離し、動脈走行に沿ってある長さを持ち二腔になった状態」である。<br>
+                b. Stanford A 型の大動脈解離とは「上行大動脈に解離がないもの」である。<br>
+                c. 偽腔に血流がないものを「偽腔閉塞型解離」と呼ぶ。<br>
+                d. 大動脈壁が局所的に拡張して瘤を形成する場合、または直径が正常型の 1.5 倍を超えて紡錘状に拡大した場合を瘤と呼ぶ。<br>
+                e. 腹部大動脈瘤の切迫破裂を疑う CT 所見(単純 CT)として Hyperattenuating crescent sign がある。
+            </div>
+            <div class="similar-question">
+                <p>【類題】大動脈解離・大動脈瘤に関する次の記述のうち、誤っているものを1つ選べ（22 問25）</p>
+                <div class="options-vertical">
+                    a. 大動脈解離とは「中膜のレベルで2層に剥離し、動脈走行に沿ってある長さを持ち二腔になった状態」である。<br>
+                    b. Stanford B型の大動脈解離とは「上行大動脈に解離があるもの」である。<br>
+                    c. 偽腔に血流がないものを「偽腔閉塞型解離」と呼ぶ。<br>
+                    d. 大動脈壁が局所的に拡張して瘤を形成する場合、または直径が正常の 1.5倍を超えて紡錘状に拡大した場合を瘤と呼ぶ。<br>
+                    e. 腹部大動脈瘤の切迫破裂を疑うCT所見(単純CT)として Hyperattenuating crescent sign がある。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】40 歳台女性。腹痛、嘔吐を主訴に救急外来を受診した。精査目的に施行された腹部骨盤部単純および造影 CT を示す。次のうち最も疑われる疾患はどれか。1 つ選べ。（23 問11, 22 問26）</p>
+            <div class="options-vertical">
+                a. 大動脈瘤破裂<br>
+                b. 鼠径ヘルニア<br>
+                c. 絞扼性腸閉塞<br>
+                d. 憩室炎<br>
+                e. 便秘<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】40歳代男性。右下腹部痛を主訴に救急外来を受診した。身体診察では右下腹部に圧痛を認めた。採血検査では軽度の炎症反応上昇を認める他は、特記すべき異常は認めなかった。腹部骨盤部単純CTを示す。最も疑われる疾患はどれか、1つ選べ。（21
+                    問6）</p>
+                <div class="options-vertical">
+                    a. 急性膵炎<br>
+                    b. 急性胆嚢炎<br>
+                    c. 急性腎盂腎炎<br>
+                    d. 憩室炎<br>
+                    e. 尿管結石<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】救急搬送された患者の頭部単純 CT 画像を示す。最も疑われる疾患はどれか。1つ選べ（22 問24）</p>
+            <div class="options-vertical">
+                a. 被殻出血<br>
+                b. 視床出血<br>
+                c. くも膜下出血<br>
+                d. 脳梗塞<br>
+                e. 脳腫瘍<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】意識障害にて救急搬送された患者の頭部単純CT画像を示す。最も疑われる疾患はどれか、1つ選べ。（21 問4）</p>
+                <div class="options-vertical">
+                    a. 被殻出血<br>
+                    b. 視床出血<br>
+                    c. くも膜下出血<br>
+                    d. 脳梗塞<br>
+                    e. 脳腫瘍<br>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>[13. IVR]</h2>
+
+        <div class="question-block">
+            <p>【問】IVR(Interventional radiology)に関する記述として誤っているものはどれか。1 つ選べ。（23 問12）</p>
+            <div class="options-vertical">
+                a. IVR は日本語では「画像下治療」と訳される。<br>
+                b. 消化管出血は IVR の適応となりうる。<br>
+                c. 外傷性出血は IVR の適応となりうる。<br>
+                d. 親カテーテルはマイクロカテーテルの中に入れて使用するものである。<br>
+                e. DSA(Digital Subtraction Angiography)画像とは造影剤投与前後の画像を差し引くこと により血管のみを明瞭に映し出す手法である。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】IVR (Interventional Radiology) に関する記述として誤っているものはどれか。1つ選べ（22 問27）</p>
+                <div class="options-vertical">
+                    a. IVRは日本語では「画像下治療」と訳される。<br>
+                    b. 消化管出血はIVRの適応となることはない。<br>
+                    c. 外傷性出血はIVRの適応となりうる。<br>
+                    d. 経皮的生検や経皮的ドレナージもIVRに含まれる。<br>
+                    e. 血管造影で用いる器具の中に「シース」がある。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】IVR (Interventional Radiology) に関する記述として誤っているものはどれか、1つ選べ。（21 問7）</p>
+                <div class="options-vertical">
+                    a. IVRは日本語では「画像下治療」と訳される。<br>
+                    b. IVRのメリットとして「低侵襲であること」が挙げられる。<br>
+                    c. 救急疾患はIVRの適応とならない。<br>
+                    d. 経皮的生検や経皮的ドレナージもIVRに含まれる。<br>
+                    e. 血管造影で用いる器具の中に「シース」がある。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】血管系 IVR が治療選択肢となる疾患に関する記述として誤っているものはどれか。1 つ選べ。（23 問13）</p>
+            <div class="options-vertical">
+                a. 肺動静脈奇形とは肺動脈と肺静脈が毛細血管を介さずに短絡する疾患である。<br>
+                b. 肺動静脈奇形の合併症として、脳梗塞・脳膿瘍がある。<br>
+                c. 内臓動脈瘤の好発部位は脾動脈である。<br>
+                d. 肝細胞癌は 100%肝動脈から供血されている。<br>
+                e. CTAP(CT during arterial portography)とはカテーテルを肝動脈に挿入して、カテーテルから造影剤を注入しながら撮像する CT のことである。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】血管系IVRが治療選択肢となる疾患に関する記述として誤っているものはどれか。1つ選べ。（22 問28）</p>
+                <div class="options-vertical">
+                    a. 肺動静脈奇形とは肺動脈と肺静脈が毛細血管を介さずに短絡する疾患である。<br>
+                    b. 肺動静脈奇形の合併症として、脳梗塞・脳膿瘍がある。<br>
+                    c. 内臓動脈瘤の好発部位は脾動脈である。<br>
+                    d. 肝細胞癌は100%肝動脈から供血されている。<br>
+                    e. CTAP (CT during arterial portography) とはカテーテルを上腸間膜動脈等に挿入して、門脈を造影しながら撮像する CTのことである。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】血管系IVRが治療選択肢となる疾患に関する記述として誤っているものはどれか、1つ選べ。（21 問8）</p>
+                <div class="options-vertical">
+                    a. 肺動静脈奇形とは肺動脈と肺静脈が毛細血管を介さずに短絡する疾患である。<br>
+                    b. 肺動静脈奇形の合併症として、脳梗塞・脳膿瘍がある。<br>
+                    c. 内臓動脈瘤の好発部位は脾動脈である。<br>
+                    d. 肝細胞癌は100％門脈から供血されている。<br>
+                    e. CTHA (CT during hepatic arteriography) とはカテーテルを肝動脈に挿入し、造影剤を注入しながら撮像するCTのことである。<br>
+                </div>
+            </div>
+        </div>
+
+        <div class="question-block">
+            <p>【問】救急 IVR に関する記述として誤っているものはどれか。1 つ選べ。（23 問14）</p>
+            <div class="options-vertical">
+                a. 外傷死のうち早期死亡(受傷 1-2 時間後程度)の原因としては、大量出血, 胸部外傷, 頭 部外傷が多い。<br>
+                b. 外傷死の三徴はアシドーシス、低体温、凝固障害である。<br>
+                c. 産科危機的出血に対する IVR のメリットとしては「妊孕性の温存」が挙げられる。<br>
+                d. 産科危機的出血に対する IVR の止血成功率は 50%程度と報告されている。<br>
+                e. 塞栓物質の中には患者の凝固能に依存する物質･依存しない物質があるため、IVR の 術者は患者の容態に応じて適切に塞栓物質を使い分ける必要がある。<br>
+            </div>
+            <div class="similar-question">
+                <p>【類題】救急IVRに関する記述として誤っているものはどれか。1つ選べ（22 問29）</p>
+                <div class="options-vertical">
+                    a. 外傷死のうち早期死亡（受傷1-2時間後程度）の原因としては、大量出血、胸部外傷、頭部外傷が多い。<br>
+                    b. 産科危機的出血に対するIVRのメリットとしては「妊孕性の温存」が挙げられる。<br>
+                    c. 産科危機的出血に対するIVRの止血成功率は30%程度と報告されている。<br>
+                    d. 塞栓物質の中には患者の凝固能に依存する物質・依存しない物質があるため、IVR の術者は患者の容態に応じて適切に使い分ける必要がある。<br>
+                    e. ショック状態の患者もIVRの適応となりうる。<br>
+                </div>
+            </div>
+            <div class="similar-question">
+                <p>【類題】救急IVRに関する記述として誤っているものはどれか、1つ選べ。（21 問9）</p>
+                <div class="options-vertical">
+                    a. 外傷死のうち早期死亡（受傷1-2時間後程度）の原因としては、大量出血，胸部外傷，頭部外傷が多い。<br>
+                    b. 産科危機的出血に対するIVRのメリットとしては「妊孕性の温存」が挙げられる。<br>
+                    c. 産科危機的出血に対するIVRの止血成功率は90%以上と報告されている。<br>
+                    d. 塞栓物質の中には患者の凝固能に依存する物質・依存しない物質があるため、IVR の術者は患者の容態に応じて適切に塞栓物質を使い分ける必要がある。<br>
+                    e. ショック状態の患者はいかなる場合でもIVRの適応とはならない。<br>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const tocList = document.getElementById("toc-list");
+            const headings = document.querySelectorAll("h2");
+            const tocLinks = [];
+
+            // 目次生成
+            headings.forEach((h2, i) => {
+                const id = "section-" + (i + 1);
+                h2.id = id;
+                const li = document.createElement("li");
+                const a = document.createElement("a");
+                a.href = "#" + id;
+                a.textContent = h2.textContent.replace("[", "").replace("]", "");
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+                });
+                li.appendChild(a);
+                tocList.appendChild(li);
+                tocLinks.push(a);
+            });
+
+            // ハイライト監視
+            const observer = new IntersectionObserver(
+                entries => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            tocLinks.forEach(link => link.classList.remove("active"));
+                            const index = [...headings].indexOf(entry.target);
+                            if (tocLinks[index]) {
+                                tocLinks[index].classList.add("active");
+                                // アクティブな項目が見えるように目次内スクロール
+                                tocLinks[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                            }
+                        }
+                    });
+                },
+                { rootMargin: "-40% 0px -55% 0px", threshold: 0 }
+            );
+            headings.forEach(h2 => observer.observe(h2));
+        </script>
+
+</body>
+
+</html>
